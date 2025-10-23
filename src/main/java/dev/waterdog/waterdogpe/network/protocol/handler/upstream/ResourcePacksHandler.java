@@ -46,7 +46,7 @@ public class ResourcePacksHandler extends AbstractUpstreamHandler {
                 break;
             case SEND_PACKS:
                 for (String packIdVer : packet.getPackIds()) {
-                    ResourcePackDataInfoPacket response = packManager.packInfoFromIdVer(packIdVer);
+                    ResourcePackDataInfoPacket response = packManager.packInfoFromIdVer(packIdVer, this.player);
                     if (response == null) {
                         this.player.disconnect("disconnectionScreen.resourcePack");
                         break;

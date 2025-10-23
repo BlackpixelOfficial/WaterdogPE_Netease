@@ -19,6 +19,8 @@ import dev.waterdog.waterdogpe.network.connection.codec.batch.FrameIdCodec;
 import dev.waterdog.waterdogpe.network.connection.codec.compression.CompressionType;
 import dev.waterdog.waterdogpe.network.connection.codec.compression.ProxiedCompressionCodec;
 import dev.waterdog.waterdogpe.network.connection.codec.packet.BedrockPacketCodec;
+import dev.waterdog.waterdogpe.network.netease.NetEaseUtils;
+import dev.waterdog.waterdogpe.network.netease.codec.NetEaseCompressionCodec;
 import dev.waterdog.waterdogpe.network.protocol.ProtocolVersion;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
@@ -60,12 +62,23 @@ public class ProxiedBedrockPeer extends BedrockPeer {
     }
 
     private void onBedrockBatch(BedrockBatchWrapper batch) {
-        if (this.firstSession == null) {
-            for (BedrockPacketWrapper wrapper : batch.getPackets()) {
-                this.getSession(wrapper.getTargetSubClientId()).onPacket(wrapper);
+        try {
+            if (this.firstSession == null) {
+                for (BedrockPacketWrapper wrapper : batch.getPackets()) {
+                    try {
+                        BedrockServerSession session = this.getSession(wrapper.getTargetSubClientId());
+                        session.onPacket(wrapper);
+                    } catch (Exception e) {
+                        log.error("[{}] 分发数据包时发生异常，子客户端ID: {}", 
+                            getSocketAddress(), wrapper.getTargetSubClientId(), e);
+                    }
+                }
+            } else {
+                this.firstSession.onBedrockBatch(batch);
             }
-        } else {
-            this.firstSession.onBedrockBatch(batch);
+        } catch (Exception e) {
+            log.error("[{}] 处理BedrockBatch时发生异常", getSocketAddress(), e);
+            throw e;
         }
     }
 
@@ -181,12 +194,23 @@ public class ProxiedBedrockPeer extends BedrockPeer {
         this.channel.pipeline().addAfter(FrameIdCodec.NAME, BedrockEncryptionDecoder.NAME,
                 new BedrockEncryptionDecoder(secretKey, EncryptionUtils.createCipher(useCtr, false, secretKey)));
 
-        log.info("Encryption enabled for {}", getSocketAddress());
+        log.info("[ProxiedBedrockPeer] Encryption enabled for {}", getSocketAddress());
     }
 
     public void setCompression(CompressionAlgorithm algorithm) {
         if (algorithm instanceof CompressionType type && type.getBedrockAlgorithm() != null) {
             this.setCompression(type.getBedrockAlgorithm());
+            // netease
+            boolean isNetease = NetEaseUtils.isNetEaseClient(getRakVersion(), this.getCodec().getProtocolVersion());
+            if (isNetease) {
+                // 将编解码器替换为netease版本
+                CompressionStrategy currentStrategy = this.compressionStrategy;
+                if (currentStrategy != null) {
+                    this.channel.pipeline().replace(CompressionCodec.NAME, CompressionCodec.NAME, 
+                        new NetEaseCompressionCodec(currentStrategy, true));
+                    log.debug("[{}] 替换标准压缩编解码器为Netease版本，强制启用前缀", getSocketAddress());
+                }
+            }
             return;
         }
         throw new IllegalArgumentException("Unsupported compression algorithm: " + algorithm);

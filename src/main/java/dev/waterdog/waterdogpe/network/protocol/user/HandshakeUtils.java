@@ -23,6 +23,7 @@ import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import dev.waterdog.waterdogpe.ProxyServer;
+import dev.waterdog.waterdogpe.network.netease.protocol.NeteaseEncryptionUtils;
 import dev.waterdog.waterdogpe.network.protocol.ProtocolVersion;
 import dev.waterdog.waterdogpe.utils.config.proxy.ProxyConfig;
 import lombok.Getter;
@@ -114,8 +115,13 @@ public class HandshakeUtils {
         return jws.verify(new ECDSAVerifier(key));
     }
 
-    public static HandshakeEntry processHandshake(BedrockSession session, LoginPacket packet, ProtocolVersion protocol, boolean strict) throws Exception {
-        ChainValidationResult result = EncryptionUtils.validatePayload(packet.getAuthPayload());
+    public static HandshakeEntry processHandshake(BedrockSession session, LoginPacket packet, ProtocolVersion protocol, boolean strict, boolean isNeteaseClient) throws Exception {
+        ChainValidationResult result;
+        if (isNeteaseClient && packet.getAuthPayload() instanceof CertificateChainPayload chainPayload) {
+            result = NeteaseEncryptionUtils.validatePayload(chainPayload);
+        } else {
+            result = EncryptionUtils.validatePayload(packet.getAuthPayload());
+        }
         boolean xboxAuth = result.signed();
         ChainValidationResult.IdentityClaims identityClaims = result.identityClaims();
         ChainValidationResult.IdentityData identityData = identityClaims.extraData;

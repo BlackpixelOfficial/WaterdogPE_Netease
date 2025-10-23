@@ -83,14 +83,35 @@ public class BedrockClientConnection extends SimpleChannelInboundHandler<Bedrock
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, BedrockBatchWrapper batch) {
-        if (this.packetHandler instanceof ProxyBatchBridge bridge) {
-            bridge.onBedrockBatch(this, batch);
-        } else if (this.packetHandler != null) {
-            for (BedrockPacketWrapper packet : batch.getPackets()) {
-                this.packetHandler.handlePacket(packet.getPacket());
+        try {
+            if (this.packetHandler instanceof ProxyBatchBridge bridge) {
+                bridge.onBedrockBatch(this, batch);
+            } else if (this.packetHandler != null) {
+                for (BedrockPacketWrapper packet : batch.getPackets()) {
+                    try {
+                        this.packetHandler.handlePacket(packet.getPacket());
+                    } catch (Exception e) {
+                        // 单个数据包错误不应导致连接断开
+                        log.warn("数据包处理错误: {} - 包类型: {}", 
+                            e.getMessage(), packet.getPacket().getClass().getSimpleName());
+                        if (log.isDebugEnabled()) {
+                            log.debug("数据包处理详细错误信息:", e);
+                        }
+                    }
+                }
+            } else {
+                log.warn("Received unhandled packets for " + this.getSocketAddress());
             }
-        } else {
-            log.warn("Received unhandled packets for " + this.getSocketAddress());
+        } catch (Exception e) {
+            // 全局错误保护 - 防止任何异常导致连接断开
+            // netease：在子服务器是nukkit-mot时，玩家登录会出现一次commands=[]的AvailableCommandsPacket，导致报错；这里就不显示该报错
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && !errorMessage.contains("commands=[]")) {
+                log.error("批处理包处理发生严重错误: {}", e.getMessage());
+            }
+            if (log.isDebugEnabled()) {
+                log.debug("批处理包错误详细信息:", e);
+            }
         }
     }
 

@@ -18,6 +18,7 @@ package dev.waterdog.waterdogpe.player;
 import dev.waterdog.waterdogpe.network.connection.codec.compression.CompressionType;
 import dev.waterdog.waterdogpe.network.connection.handler.ReconnectReason;
 import dev.waterdog.waterdogpe.network.connection.peer.BedrockServerSession;
+import dev.waterdog.waterdogpe.network.netease.NetEaseUtils;
 import dev.waterdog.waterdogpe.network.connection.client.ClientConnection;
 import dev.waterdog.waterdogpe.network.protocol.handler.PluginPacketHandler;
 import dev.waterdog.waterdogpe.network.protocol.handler.downstream.CompressionInitHandler;
@@ -109,6 +110,10 @@ public class ProxiedPlayer implements CommandSender {
      * Do not set directly BedrockPacketHandler to sessions!
      */
     private final Collection<PluginPacketHandler> pluginPacketHandlers = new ObjectArrayList<>();
+    /*
+     * netease客户端
+     */
+    public boolean isNeteaseClient = false;
 
     public ProxiedPlayer(ProxyServer proxy, BedrockServerSession session, CompressionType compression, LoginData loginData) {
         this.proxy = proxy;
@@ -272,6 +277,11 @@ public class ProxiedPlayer implements CommandSender {
         }
 
         this.setPendingConnection(connection);
+
+        int actualRaknetVersion = this.connection.getPeer().getRakVersion();
+        boolean isNetEaseClient = NetEaseUtils.isNetEaseClient(actualRaknetVersion, this.getProtocol().getProtocol());
+        // NetEase客户端
+        this.isNeteaseClient = isNetEaseClient;
 
         connection.setCodecHelper(this.getProtocol().getCodec(),
                 this.connection.getPeer().getCodecHelper());
