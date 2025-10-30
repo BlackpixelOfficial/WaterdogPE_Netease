@@ -23,6 +23,9 @@
 # Allow copyright files
 !.idea/copyright
 
+# macos' shit
+.DS_Store
+
 out/
 
 *.iml
