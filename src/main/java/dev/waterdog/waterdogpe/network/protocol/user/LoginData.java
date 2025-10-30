@@ -45,6 +45,7 @@ public class LoginData {
     private final String displayName;
     private final UUID uuid;
     private final String xuid;
+    private final long uid;
     private final boolean xboxAuthed;
     private final SocketAddress address;
     private final ProtocolVersion protocol;
@@ -82,7 +83,7 @@ public class LoginData {
         loginPacket.setClientJwt(signedClientData.serialize());
         loginPacket.setProtocolVersion(this.protocol.getProtocol());
         if (isChainPayload) {
-            JsonObject extraData = HandshakeUtils.createChainExtraData(displayName, xuid, uuid);
+            JsonObject extraData = HandshakeUtils.createChainExtraData(displayName, xuid, uuid, uid);
             SignedJWT signedPayload = HandshakeUtils.createClientDataChain(this.keyPair, extraData);
             loginPacket.setAuthPayload(new CertificateChainPayload(Collections.singletonList(signedPayload.serialize()), AuthType.SELF_SIGNED));
         } else {
