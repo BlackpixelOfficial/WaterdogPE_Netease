@@ -138,9 +138,7 @@ public class HandshakeUtils {
             var rawIdentityClaims = result.rawIdentityClaims();
             Map<?, ?> extraData = JsonUtils.childAsType(rawIdentityClaims, "extraData", Map.class);
             uid = JsonUtils.childAsType(extraData, "uid", Long.class);
-        } catch (Exception e) {
-            log.warn("Failed to parse uid from extraData for uuid {}", uuid, e);
-        }
+        } catch (Exception ignored) {}
 
         SignedJWT clientDataJwt = SignedJWT.parse(packet.getClientJwt());
         JsonObject clientData = HandshakeUtils.parseClientData(clientDataJwt, xuid, session);
