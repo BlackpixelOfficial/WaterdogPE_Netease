@@ -20,6 +20,7 @@ import dev.waterdog.waterdogpe.WaterdogPE;
 import dev.waterdog.waterdogpe.event.defaults.PlayerAuthenticatedEvent;
 import dev.waterdog.waterdogpe.network.connection.codec.compression.CompressionType;
 import dev.waterdog.waterdogpe.network.connection.peer.BedrockServerSession;
+import dev.waterdog.waterdogpe.network.netease.NetEaseUtils;
 import dev.waterdog.waterdogpe.network.protocol.ProtocolVersion;
 import dev.waterdog.waterdogpe.network.protocol.user.LoginData;
 import dev.waterdog.waterdogpe.network.protocol.user.HandshakeEntry;
@@ -28,7 +29,6 @@ import dev.waterdog.waterdogpe.player.ProxiedPlayer;
 import dev.waterdog.waterdogpe.security.SecurityManager;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.compat.BedrockCompat;
-import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.cloudburstmc.protocol.common.PacketSignal;
 
@@ -120,7 +120,19 @@ public class LoginUpstreamHandler implements BedrockPacketHandler {
         }
         return PacketSignal.HANDLED;
     }
-
+    
+    /**
+     * 获取raknet协议版本
+     */
+    private int getRaknetProtocol() {
+        try {
+            return this.session.getPeer().getRakVersion();
+        } catch (Exception e) {
+            this.proxy.getLogger().debug("无法获取raknet协议版本，使用默认值11: {}", e.getMessage());
+            return 11; // 默认值
+        }
+    }
+    
     @Override
     public PacketSignal handle(LoginPacket packet) {
         ProtocolVersion protocol;
@@ -132,6 +144,10 @@ public class LoginUpstreamHandler implements BedrockPacketHandler {
         if (codec == null || codec == BedrockCompat.CODEC) {
             this.session.getPeer().setProtocol(protocol);
         }
+
+        // 判断客户端类型
+        int raknetProtocol = getRaknetProtocol();
+        boolean isNetEaseMode = NetEaseUtils.isNetEaseClient(raknetProtocol, packet.getProtocolVersion());
 
         if (protocol.isAfterOrEqual(ProtocolVersion.MINECRAFT_PE_1_19_30) && this.compression == null) {
             this.proxy.getLogger().warning("[{}] <-> Upstream has not requested network settings (protocol={})", this.session.getSocketAddress(), protocol.getProtocol());
@@ -149,7 +165,7 @@ public class LoginUpstreamHandler implements BedrockPacketHandler {
             this.proxy.getLogger().debug("[{}] <-> Received login with authType: {} and payloadType: {}.", this.session.getSocketAddress(),
                     packet.getAuthPayload().getClass().getSimpleName(), packet.getAuthPayload().getAuthType());
 
-            handshakeEntry = HandshakeUtils.processHandshake(this.session, packet, protocol, strictAuth);
+            handshakeEntry = HandshakeUtils.processHandshake(this.session, packet, protocol, strictAuth, isNetEaseMode);
             if (!handshakeEntry.isXboxAuthed() && strictAuth) {
                 this.onLoginFailed(handshakeEntry, null, "disconnectionScreen.notAuthenticated");
                 this.proxy.getLogger().info("[{}|{}] <-> Upstream has disconnected due to failed XBOX authentication!", this.session.getSocketAddress(), handshakeEntry.getDisplayName());
@@ -181,7 +197,13 @@ public class LoginUpstreamHandler implements BedrockPacketHandler {
                 return PacketSignal.HANDLED;
             }
 
-            if (this.proxy.getConfiguration().isUpstreamEncryption()) {
+            boolean shouldEnableEncryption = this.proxy.getConfiguration().isUpstreamEncryption();
+            if (isNetEaseMode) {
+                shouldEnableEncryption = false;
+                this.proxy.getLogger().info("[{}] <-> NetEase模式：禁用加密连接", this.session.getSocketAddress());
+            }
+            
+            if (shouldEnableEncryption) {
                 HandshakeUtils.processEncryption(session, handshakeEntry.getIdentityPublicKey());
             } else {
                 this.finishConnection();

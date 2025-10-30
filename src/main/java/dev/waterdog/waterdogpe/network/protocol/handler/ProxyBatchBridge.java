@@ -91,7 +91,13 @@ public class ProxyBatchBridge implements BedrockPacketHandler {
             msg.skipBytes(wrapper.getHeaderLength()); // skip header
             wrapper.setPacket(this.codec.tryDecode(helper, msg, wrapper.getPacketId(), direction.getInbound()));
         } catch (Throwable t) {
-            log.warn("Failed to decode packet", t);
+            // netease：在子服务器是nukkit-mot时，玩家登录会出现一次commands=[]的AvailableCommandsPacket，导致报错
+            String errorMessage = t.getMessage();
+            if (errorMessage != null && errorMessage.contains("commands=[]")) {
+                log.warn("Failed to decode packet: {}", errorMessage);
+            } else {
+                log.warn("Failed to decode packet", t);
+            }
             throw t;
         } finally {
             msg.release();
