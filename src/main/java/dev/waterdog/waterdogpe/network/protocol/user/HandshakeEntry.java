@@ -39,17 +39,20 @@ public class HandshakeEntry {
     @Setter
     private ProtocolVersion protocol;
     private final boolean isChainPayload;
+    private final long uid;
 
-    public HandshakeEntry(ECPublicKey identityPublicKey, JsonObject clientData, String xuid, UUID uuid, String displayName, boolean xboxAuthed, ProtocolVersion protocol, boolean isChainPayload) {
+    public HandshakeEntry(ECPublicKey identityPublicKey, JsonObject clientData, String xuid, UUID uuid, long uid, String displayName, boolean xboxAuthed, ProtocolVersion protocol, boolean isChainPayload) {
         this.identityPublicKey = identityPublicKey;
         this.clientData = clientData;
         this.xuid = xuid;
         this.uuid = uuid;
+        this.uid = uid;
         this.displayName = displayName;
         this.xboxAuthed = xboxAuthed;
         this.protocol = protocol;
         this.isChainPayload = isChainPayload;
     }
+
 
     public LoginData buildData(BedrockServerSession session, ProxyServer proxy) throws Exception {
         // This is first event which exposes new player connecting to proxy.
@@ -61,6 +64,7 @@ public class HandshakeEntry {
         builder.displayName(this.displayName);
         builder.uuid(this.uuid);
         builder.xuid(this.xuid);
+        builder.uid(this.uid);
         builder.xboxAuthed(this.xboxAuthed);
         builder.protocol(this.protocol);
         builder.joinHostname(this.clientData.get("ServerAddress").getAsString().split(":")[0]);

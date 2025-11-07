@@ -34,6 +34,7 @@ import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
 import org.cloudburstmc.protocol.bedrock.packet.ServerToClientHandshakePacket;
 import org.cloudburstmc.protocol.bedrock.util.ChainValidationResult;
 import org.cloudburstmc.protocol.bedrock.util.EncryptionUtils;
+import org.cloudburstmc.protocol.bedrock.util.JsonUtils;
 
 import javax.crypto.SecretKey;
 import java.net.InetSocketAddress;
@@ -43,6 +44,7 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.text.ParseException;
 import java.util.Base64;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -130,6 +132,14 @@ public class HandshakeUtils {
         //UUID uuid = UUID.nameUUIDFromBytes(("pocket-auth-1-xuid:" + xuid).getBytes(StandardCharsets.UTF_8));
         UUID uuid = identityData.identity;
 
+        // 自己解析extraData中的uid字段
+        long uid = 0;
+        try {
+            var rawIdentityClaims = result.rawIdentityClaims();
+            Map<?, ?> extraData = JsonUtils.childAsType(rawIdentityClaims, "extraData", Map.class);
+            uid = JsonUtils.childAsType(extraData, "uid", Long.class);
+        } catch (Exception ignored) {}
+
         SignedJWT clientDataJwt = SignedJWT.parse(packet.getClientJwt());
         JsonObject clientData = HandshakeUtils.parseClientData(clientDataJwt, xuid, session);
         if (!verifyJwt(clientDataJwt, identityPublicKey) && strict) {
@@ -149,7 +159,7 @@ public class HandshakeUtils {
                 clientData.addProperty("Waterdog_Auth", true);
             }
         }
-        return new HandshakeEntry(identityPublicKey, clientData, xuid, uuid, displayName, xboxAuth, protocol,
+        return new HandshakeEntry(identityPublicKey, clientData, xuid, uuid, uid, displayName, xboxAuth, protocol,
                 packet.getAuthPayload() instanceof CertificateChainPayload);
     }
 
@@ -177,11 +187,12 @@ public class HandshakeUtils {
         });
     }
 
-    public static JsonObject createChainExtraData(String displayName, String xuid, UUID uuid) {
+    public static JsonObject createChainExtraData(String displayName, String xuid, UUID uuid, long uid) {
         JsonObject extraData = new JsonObject();
         extraData.addProperty("displayName", displayName);
         extraData.addProperty("XUID", xuid);
         extraData.addProperty("identity", uuid.toString());
+        extraData.addProperty("uid", uid);
         return extraData;
     }
 }
