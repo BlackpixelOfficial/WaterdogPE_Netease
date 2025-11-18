@@ -102,4 +102,22 @@ public class LoginData {
         return this.loginPacket;
     }
 
+    public long getUid(){
+        try {
+            return neteaseExtraData.get("uid").getAsLong();
+        } catch (Exception e) {
+            log.warn("Failed to get uid from neteaseExtraData: {}", e.getMessage());
+            return -1;
+        }
+    }
+
+    public String getPlatform(){
+        try {
+            return neteaseExtraData.get("platform").getAsString();
+        } catch (Exception e) {
+            log.warn("Failed to get platform from neteaseExtraData: {}", e.getMessage());
+            return "unknown";
+        }
+    }
+
 }
